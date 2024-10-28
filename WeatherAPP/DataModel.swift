@@ -73,12 +73,14 @@ struct WeatherData : Codable {
 	let main: Main
 	let wind: Wind
 	let sys : Sys
+	let name: String
 	
-	init(weather: [Weather], main: Main, wind: Wind, sys: Sys) {
+	init(weather: [Weather], main: Main, wind: Wind, sys: Sys, name: String) {
 		self.weather = weather
 		self.main = main
 		self.wind = wind
 		self.sys = sys
+		self.name = name
 	}
 	
 	init(from decoder: any Decoder) throws {
@@ -87,6 +89,7 @@ struct WeatherData : Codable {
 		self.main = try container.decode(Main.self, forKey: .main)
 		self.wind = try container.decode(Wind.self, forKey: .wind)
 		self.sys = try container.decode(Sys.self, forKey: .sys)
+		self.name = try container.decode(String.self, forKey: .name)
 	}
 	
 	
@@ -96,6 +99,7 @@ struct WeatherData : Codable {
 struct Weather: Codable {
 	let main: String
 	let description: String
+	let id: Int
 	
 }
 
@@ -104,6 +108,7 @@ struct Main : Codable { // the code on the api is Main
 	let tempMin: Double //the code on the api is temp_min
 	let tempMax : Double //the code on the api is temp_max
 	let humidity: Double
+
 	
 	//Coding Keys
 	enum CodingKeys: String, CodingKey {

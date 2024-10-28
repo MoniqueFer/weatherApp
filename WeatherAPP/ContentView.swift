@@ -11,20 +11,9 @@ import CoreLocation
 struct ContentView: View {
 	
 	@State var query: String = ""
-//	@State var humidity: Double = 80
-	
-	@State var sunriseEpochTime = TimeInterval(1727427028)
-	@State var sunsetEpochTime = TimeInterval(1727471050)
-	
 	@State var weatherData: WeatherData?
-
-		
+	
 	var body: some View {
-		
-		
-// como vou mudar o nome da cidade?
-		//como mudar o icone?
-		
 		
 		ZStack{
 			
@@ -35,6 +24,7 @@ struct ContentView: View {
 				
 				if let weatherData = weatherData {
 					let speed = weatherData.wind.speed
+					let convertedSpeed = (speed * 3600) / 1000
 					let temp = weatherData.main.temp
 					let tempMin = weatherData.main.tempMin
 					let tempMax = weatherData.main.tempMax
@@ -42,33 +32,34 @@ struct ContentView: View {
 					let sunrise = Date(timeIntervalSince1970: weatherData.sys.sunrise)
 					let sunset = Date(timeIntervalSince1970: weatherData.sys.sunset)
 					let description = weatherData.weather[0].description
+					let name = weatherData.name
+					let weatherId = weatherData.weather[0].id
 					
 					SearchBar(locationService: LocationService())
 					
+					CityPlusResume(description: description, name: name)
 					
-					Text(" \(speed, specifier: "%.2f") m/s")
-					Text("\(tempMin, specifier: "%.f")°")
-					Text(sunrise, format: Date.FormatStyle().hour().minute())
+					ActualClimateCard(temp: temp, weatherId: weatherId)
 					
+					HStack{
+						
+						CardTemp(tempMin: tempMin, tempMax: tempMax)
+						
+						HumidityCard(humidity : humidity)
+						
+						
+					}
 					
+					HStack {
+						
+						SunriseAndSunset(sunrise: sunrise, sunset: sunset)
+						
+						WindCard(convertedSpeed : convertedSpeed)
+						
+					}
 					
-					CityPlusResume(description: description)
+					.padding(.vertical)
 					
-					
-					ActualClimateCard(tempMin: tempMin, tempMax: tempMax)
-					
-				
-				
-				HStack{
-					
-					HumidityCard(humidity : humidity)
-					
-					
-					SunriseAndSunset(sunriseEpochTime: sunriseEpochTime, sunsetEpochTime: sunsetEpochTime)
-					
-					
-					
-				}
 					
 				} else {
 					
@@ -77,14 +68,18 @@ struct ContentView: View {
 						.foregroundStyle(.gray)
 				}
 				
-				
 				Spacer()
 				
 				//monospacedigit for numbers
-				// umidade e velocidade dos ventos
 				
 					.onAppear{
-						callAPI()
+						
+						
+//						callAPI(lat: -23.5489, lon: -46.6388)
+
+							
+							
+
 					}
 				
 			}
@@ -94,9 +89,28 @@ struct ContentView: View {
 		
 	}
 	
-	func callAPI() {
+	
+	
+	func callAPI(lat: CLLocationDegrees, lon: CLLocationDegrees) {
 		
-		guard let url = URL(string: "https://api.openweathermap.org/data/2.5/weather?lat=-23.550520&lon=-46.633308&appid=32a4b19cf3a447e6ed4ffb5c9a56dc77&units=metric") else { return }
+		var components = URLComponents(string: "https://api.openweathermap.org/data/2.5/weather?")!
+		
+//		https://api.openweathermap.org/data/2.5/weather?lat=-23.550520&lon=-46.633308&appid=32a4b19cf3a447e6ed4ffb5c9a56dc77"
+	
+		
+		components.queryItems = [
+			URLQueryItem(name: "lat", value: "\(lat)"),
+			URLQueryItem(name: "lon", value: "\(lon)"),
+			URLQueryItem(name: "appid", value: "32a4b19cf3a447e6ed4ffb5c9a56dc77"),
+			URLQueryItem(name: "units", value: "metric"),
+			URLQueryItem(name: "lang", value: "pt_br")
+			
+		]
+		
+		guard let url = components.url else {
+			return
+		}
+		
 		
 		URLSession.shared.dataTask(with: url) { data, response, error in
 			guard let data = data else {
@@ -115,7 +129,7 @@ struct ContentView: View {
 			}
 			
 			guard response.statusCode >= 200 && response.statusCode < 300 else {
-				print("Status code should be 2xx, but is \(response.statusCode) ")
+				print("Status code should be 2xx, but is \(response.statusCode) \(url)")
 				return
 			}
 			
@@ -132,16 +146,18 @@ struct ContentView: View {
 		
 	}
 	
-		
+	
 }
 
-#Preview {
-	ContentView()
-}
+//#Preview {
+//	ContentView()
+//}
 
 struct ActualClimateCard: View {
-	var tempMin: Double
-	var tempMax: Double
+	
+	var temp : Double
+	var weatherId: Int
+	
 	
 	var body: some View {
 		VStack{
@@ -151,42 +167,25 @@ struct ActualClimateCard: View {
 				
 				Spacer()
 				
-				Image(systemName: "sun.max.fill")
-					.foregroundStyle(.yellow)
+				
+				IconWeather().getIcon(weatherIconID: weatherId)
 					.font(.system(size: 80))
 					.padding()
 				
 				Spacer()
 				
-				VStack{
-					HStack {
-						Image(systemName: "thermometer.low")
-							.font(.system(size: 30))
-							.symbolRenderingMode(.multicolor)
-						
-						Text("Mín:")
-						
-						Text("\(tempMin, specifier: "%.f")°").monospacedDigit()
-					}
-					
-					HStack {
-						Image(systemName: "thermometer.high")
-							.font(.system(size: 30))
-							.symbolRenderingMode(.multicolor)
-						
-						Text("Max:")
-						Text("\(tempMax, specifier: "%.f")°").monospacedDigit()
-						
-					}
-				}
-				.padding()
+				Text("\(temp, specifier: "%.f")°C").monospacedDigit()
+					.font(.system(size: 50))
+					.foregroundStyle(.white)
+					.shadow(radius: 5)
+				
 				Spacer()
 				
 				
-			} 	.background(.ultraThinMaterial, in:
+			} 	.background(.thinMaterial, in:
 								RoundedRectangle(cornerRadius: 20)
-				)
-				.padding(.horizontal)
+			)
+			.padding(.horizontal)
 			
 		}
 	}
@@ -196,10 +195,8 @@ struct SearchBar: View {
 	@ObservedObject var locationService: LocationService
 	@FocusState private var searchFieldIsFocused: Bool
 	@State var selectedCity: String = ""
-	let geocoder = CLGeocoder()
 	
-	@State var weatherData: WeatherData?
-
+	@ObservedObject var OTestViewModel = TestViewModel()
 	
 	var body: some View {
 		VStack {
@@ -216,6 +213,15 @@ struct SearchBar: View {
 						searchFieldIsFocused = !newValue.isEmpty
 					}
 				}
+			
+			Button {
+				OTestViewModel.callAPISearchBar()
+				
+			} label: {
+				Text("Ir")
+			}
+			
+			
 		}
 		.overlay {
 			if  !locationService.queryFragment.isEmpty || searchFieldIsFocused {
@@ -237,19 +243,18 @@ struct SearchBar: View {
 									searchFieldIsFocused = false
 									locationService.queryFragment = ""
 									
-									getCoordinates(for: selectedCity) { coordinate in
+									OTestViewModel.getCoordinates(for: selectedCity) { coordinate in
 										if let coordinate = coordinate {
-											print("Coordinate for \(selectedCity): \(coordinate.latitude), \(coordinate.longitude)")
-										} else {
-											print("Could not get coordinates for \(selectedCity).")
+//											print("Coordinate for \(selectedCity): \(coordinate.latitude), \(coordinate.longitude)")
+											TestViewModel.passCoordinates(coordinate: coordinate)
+											
+										} else { print("Could not get coordinates for \(selectedCity).")
+											
 										}
 									}
-									
-									callAPI()
-									
 								}
 							
-
+							
 						}
 					}
 					
@@ -264,69 +269,18 @@ struct SearchBar: View {
 		} .zIndex(1)
 	}
 	
-	func callAPI() {
-		
-		guard let url = URL(string: "https://api.openweathermap.org/data/2.5/weather?lat=-23.550520&lon=-46.633308&appid=32a4b19cf3a447e6ed4ffb5c9a56dc77") else { return }
-		
-		URLSession.shared.dataTask(with: url) { data, response, error in
-			guard let data = data else {
-				print("no data")
-				return
-			}
-			
-			guard error == nil else {
-				print("error: \(String(describing: error?.localizedDescription))")
-				return
-			}
-			
-			guard let response = response as? HTTPURLResponse else {
-				print("invalid response")
-				return
-			}
-			
-			guard response.statusCode >= 200 && response.statusCode < 300 else {
-				print("Status code should be 2xx, but is \(response.statusCode) ")
-				return
-			}
-			
-			print("Sucessfully donwloaded data!")
-			print(data)
-			
-			guard let weatherData = try? JSONDecoder().decode(WeatherData.self, from: data) else { return }
-			print("Decoded WeatherData: \(weatherData)")
-			DispatchQueue.main.async {
-				self.weatherData = weatherData
-			}
-			
-		}.resume()
-		
-	}
-	
-	func getCoordinates(for address: String, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
-		geocoder.geocodeAddressString(address) { placemarks, error in
-			if let error = error {
-				print("Geocoding error: \(error.localizedDescription)")
-				completion(nil)
-				return
-			}
 
-			if let location = placemarks?.first?.location {
-				completion(location.coordinate)
-			} else {
-				completion(nil)
-			}
-		}
-	}
 	
 }
 
 struct CityPlusResume: View {
 	
 	var description: String
+	var name : String
 	
 	var body: some View {
 		VStack {
-			Text("Sao paulo")
+			Text(name)
 				.font(.custom("SFCompactRounded", size: 30))
 				.foregroundStyle(.white)
 			
@@ -339,6 +293,7 @@ struct CityPlusResume: View {
 		.frame(maxWidth: .infinity)
 		.padding(.vertical)
 		.zIndex(0)
+		
 	}
 }
 
@@ -357,60 +312,241 @@ struct HumidityCard: View {
 				.font(.largeTitle)
 			
 			ProgressView(value: humidity, total: 100)
-
+			
 				.tint(Color.blue)
 				.padding(.horizontal)
+			
 		}
-		
+		.frame(height: 100)
 		.padding()
 		.background(
 			RoundedRectangle(cornerRadius: 20)
-				.fill(.ultraThinMaterial)
-		) .padding()
+				.fill(.thinMaterial))
+		.padding(.horizontal)
 	}
 }
 
 struct SunriseAndSunset: View {
 	
-	@State var sunriseEpochTime : TimeInterval
-	@State var sunsetEpochTime : TimeInterval
+	var sunrise : Date
+	var sunset : Date
 	
 	var body: some View {
-		
-		let sunriseDate = Date(timeIntervalSince1970: sunriseEpochTime)
-		let sunsetDate = Date(timeIntervalSince1970: sunsetEpochTime)
 		
 		VStack{
 			
 			
 			HStack{
 				Image(systemName: "sunrise")
-					.font(.largeTitle)
 					.symbolRenderingMode(.palette)
 					.foregroundStyle(.yellow, .orange)
+					.font(.system(size: 33))
 				
-				Text(sunriseDate, format: Date.FormatStyle().hour().minute())
+				
+				Text(sunrise, format: Date.FormatStyle().hour().minute())
 					.monospacedDigit()
 				
 			} .padding(.bottom)
 			
 			HStack{
 				Image(systemName: "sunset")
-					.font(.largeTitle)
 					.symbolRenderingMode(.palette)
 					.foregroundStyle(.yellow, .orange)
+					.font(.system(size: 33))
 				
-				Text(sunsetDate, format: Date.FormatStyle().hour().minute())
+				Text(sunset, format: Date.FormatStyle().hour().minute())
 					.monospacedDigit()
 			}
 			
-		} .padding()
-			.padding(.horizontal)
-			.background(
-				RoundedRectangle(cornerRadius: 20)
-					.fill(.ultraThinMaterial)
-				
-			) .padding(.trailing)
+		}
+		.frame(height: 100)
+		.font(.system(size: 20))
+		.padding()
+		.padding(.horizontal)
+		.background(
+			RoundedRectangle(cornerRadius: 20)
+				.fill(.thinMaterial)
+			
+		) .padding(.trailing)
+		
 	}
 }
+
+struct CardTemp: View {
+	
+	var tempMin: Double
+	var tempMax: Double
+	
+	var body: some View {
+		VStack{
+			HStack {
+				Image(systemName: "thermometer.low")
+					.symbolRenderingMode(.multicolor)
+				
+				
+				Text("\(tempMin, specifier: "%.f")°C").monospacedDigit()
+			}
+			
+			HStack {
+				Image(systemName: "thermometer.high")
+					.symbolRenderingMode(.multicolor)
+				
+				Text("\(tempMax, specifier: "%.f")°C").monospacedDigit()
+				
+			}
+		}
+		
+		.font(.system(size: 33))
+		.frame(height: 100)
+		
+		.padding()
+		.background(
+			RoundedRectangle(cornerRadius: 20)
+				.fill(.thinMaterial))
+		.padding(.leading)
+		
+	}
+}
+
+struct WindCard: View {
+	
+	var convertedSpeed : Double
+	
+	var body: some View {
+		VStack {
+			HStack{
+				Image(systemName: "wind")
+					.foregroundStyle(.blue)
+				
+				Text(" \(convertedSpeed, specifier: "%.f") km/h")
+			}
+			.font(.system(size: 33))
+			.frame(height: 100)
+			.padding()
+			
+		}
+		
+		.background(
+			RoundedRectangle(cornerRadius: 20)
+				.fill(.thinMaterial))
+		
+	}
+}
+
+struct IconWeather {
+	
+	func getIcon(weatherIconID: Int) -> AnyView {
+		var iconImage: any View
+		if weatherIconID >= 801 || weatherIconID <= 804 {
+			iconImage = Image(systemName: "cloud.fill")
+				.foregroundStyle(.white)
+		} else if weatherIconID >= 500 || weatherIconID <= 531 {
+			iconImage = Image(systemName: "cloud.rain.fill")
+				.symbolRenderingMode(.multicolor)
+				.foregroundStyle(.white)
+		} else if weatherIconID >= 701 || weatherIconID <= 799 {
+			iconImage = Image(systemName: "aqi.medium")
+				.foregroundStyle(.white)
+		} else if weatherIconID >= 600 || weatherIconID <= 622 {
+			iconImage = Image(systemName: "snowflake")
+				.foregroundStyle(.white)
+		} else if weatherIconID >= 300 || weatherIconID <= 321 {
+			iconImage = Image(systemName: "cloud.drizzle.fill")
+				.symbolRenderingMode(.multicolor)
+				.foregroundStyle(.white)
+		} else if weatherIconID >= 200 || weatherIconID <= 232 {
+			iconImage = Image(systemName: "cloud.bolt.rain.fill")
+				.symbolRenderingMode(.multicolor)
+				.foregroundStyle(.white)
+		} else {
+			iconImage = Image(systemName: "sun.max.fill")
+				.foregroundStyle(.yellow)
+		}
+		return AnyView(iconImage)
+	}
+	
+	
+	// sol pleno = sun.max.fill (800) ook
+	// só nuvem = cloud.fill (801 a 804) ook
+	// chuva = cloud.rain.fill (500 a 531) ook
+	// nevoa = aqi.medium (701 a 799) ook
+	// snow = snowflake (600 a 622) ook
+	//garoa = cloud.drizzle.fill (300 a 321) ook
+	// trovoada cloud.bolt.rain.fill (200 a 232)
+	
+}
+
+
+
+class TestViewModel: ObservableObject {
+	
+	
+	@State var weatherData: WeatherData?
+	let geocoder = CLGeocoder()
+
+	var currentCoordinate: CLLocationCoordinate2D?
+
+	
+	
+		
+	func callAPISearchBar() {
+	   
+	   guard let url = URL(string: "https://api.openweathermap.org/data/2.5/weather?lat=-23.550520&lon=-46.633308&appid=32a4b19cf3a447e6ed4ffb5c9a56dc77") else { return }
+	   
+	   URLSession.shared.dataTask(with: url) { data, response, error in
+		   guard let data = data else {
+			   print("no data")
+			   return
+		   }
+		   
+		   guard error == nil else {
+			   print("error: \(String(describing: error?.localizedDescription))")
+			   return
+		   }
+		   
+		   guard let response = response as? HTTPURLResponse else {
+			   print("invalid response")
+			   return
+		   }
+		   
+		   guard response.statusCode >= 200 && response.statusCode < 300 else {
+			   print("Status code should be 2xx, but is \(response.statusCode) ")
+			   return
+		   }
+		   
+		   print("Sucessfully donwloaded data!")
+		   print(data)
+		   
+		   guard let weatherData = try? JSONDecoder().decode(WeatherData.self, from: data) else { return }
+		   print("Decoded WeatherData: \(weatherData)")
+		   DispatchQueue.main.async {
+			   self.weatherData = weatherData
+		   }
+		   
+	   }.resume()
+	   
+   }
+   
+   func getCoordinates(for address: String, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
+	   geocoder.geocodeAddressString(address) { placemarks, error in
+		   if let error = error {
+			   print("Geocoding error: \(error.localizedDescription)")
+			   completion(nil)
+			   return
+		   }
+		   
+		   if let location = placemarks?.first?.location {
+			   let coordinate = location.coordinate
+			   
+			   completion(coordinate)
+		   } else {
+			   completion(nil)
+		   }
+	   }
+   }
+	
+	//its almost everything in here, inside this viewmodel. except the initial call api function .
+	
+}
+
 
