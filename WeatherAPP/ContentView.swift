@@ -11,7 +11,11 @@ import CoreLocation
 struct ContentView: View {
 	
 	@State var query: String = ""
-	@State var weatherData: WeatherData?
+	
+	@StateObject var viewModel = TestViewModel()
+
+
+	
 	
 	var body: some View {
 		
@@ -22,7 +26,7 @@ struct ContentView: View {
 			
 			VStack{
 				
-				if let weatherData = weatherData {
+				if let weatherData = viewModel.weatherData {
 					let speed = weatherData.wind.speed
 					let convertedSpeed = (speed * 3600) / 1000
 					let temp = weatherData.main.temp
@@ -35,7 +39,7 @@ struct ContentView: View {
 					let name = weatherData.name
 					let weatherId = weatherData.weather[0].id
 					
-					SearchBar(locationService: LocationService())
+					SearchBar(locationService: LocationService(), viewModel: viewModel)
 					
 					CityPlusResume(description: description, name: name)
 					
@@ -73,9 +77,7 @@ struct ContentView: View {
 				//monospacedigit for numbers
 				
 					.onAppear{
-						
-						
-//						callAPI(lat: -23.5489, lon: -46.6388)
+						viewModel.callAPI(lat: -23.5489, lon: -46.6388)
 
 							
 							
@@ -91,60 +93,6 @@ struct ContentView: View {
 	
 	
 	
-	func callAPI(lat: CLLocationDegrees, lon: CLLocationDegrees) {
-		
-		var components = URLComponents(string: "https://api.openweathermap.org/data/2.5/weather?")!
-		
-//		https://api.openweathermap.org/data/2.5/weather?lat=-23.550520&lon=-46.633308&appid=32a4b19cf3a447e6ed4ffb5c9a56dc77"
-	
-		
-		components.queryItems = [
-			URLQueryItem(name: "lat", value: "\(lat)"),
-			URLQueryItem(name: "lon", value: "\(lon)"),
-			URLQueryItem(name: "appid", value: "32a4b19cf3a447e6ed4ffb5c9a56dc77"),
-			URLQueryItem(name: "units", value: "metric"),
-			URLQueryItem(name: "lang", value: "pt_br")
-			
-		]
-		
-		guard let url = components.url else {
-			return
-		}
-		
-		
-		URLSession.shared.dataTask(with: url) { data, response, error in
-			guard let data = data else {
-				print("no data")
-				return
-			}
-			
-			guard error == nil else {
-				print("error: \(String(describing: error?.localizedDescription))")
-				return
-			}
-			
-			guard let response = response as? HTTPURLResponse else {
-				print("invalid response")
-				return
-			}
-			
-			guard response.statusCode >= 200 && response.statusCode < 300 else {
-				print("Status code should be 2xx, but is \(response.statusCode) \(url)")
-				return
-			}
-			
-			print("Sucessfully donwloaded data!")
-			print(data)
-			
-			guard let weatherData = try? JSONDecoder().decode(WeatherData.self, from: data) else { return }
-			print("Decoded WeatherData: \(weatherData)")
-			DispatchQueue.main.async {
-				self.weatherData = weatherData
-			}
-			
-		}.resume()
-		
-	}
 	
 	
 }
@@ -196,7 +144,8 @@ struct SearchBar: View {
 	@FocusState private var searchFieldIsFocused: Bool
 	@State var selectedCity: String = ""
 	
-	@ObservedObject var OTestViewModel = TestViewModel()
+	
+	@ObservedObject var viewModel: TestViewModel
 	
 	var body: some View {
 		VStack {
@@ -213,14 +162,6 @@ struct SearchBar: View {
 						searchFieldIsFocused = !newValue.isEmpty
 					}
 				}
-			
-			Button {
-				OTestViewModel.callAPISearchBar()
-				
-			} label: {
-				Text("Ir")
-			}
-			
 			
 		}
 		.overlay {
@@ -243,14 +184,18 @@ struct SearchBar: View {
 									searchFieldIsFocused = false
 									locationService.queryFragment = ""
 									
-									OTestViewModel.getCoordinates(for: selectedCity) { coordinate in
+									TestViewModel().getCoordinates(for: selectedCity) { coordinate in
 										if let coordinate = coordinate {
-//											print("Coordinate for \(selectedCity): \(coordinate.latitude), \(coordinate.longitude)")
-											TestViewModel.passCoordinates(coordinate: coordinate)
+											print("Coordinate for \(selectedCity): \(coordinate.latitude), \(coordinate.longitude)")
+											
+											viewModel.callAPI(lat: coordinate.latitude, lon: coordinate.longitude)
+
 											
 										} else { print("Could not get coordinates for \(selectedCity).")
 											
 										}
+										
+										
 									}
 								}
 							
@@ -477,11 +422,10 @@ struct IconWeather {
 }
 
 
-
-class TestViewModel: ObservableObject {
+public class TestViewModel: ObservableObject {
 	
 	
-	@State var weatherData: WeatherData?
+	@Published var weatherData: WeatherData?
 	let geocoder = CLGeocoder()
 
 	var currentCoordinate: CLLocationCoordinate2D?
@@ -544,8 +488,63 @@ class TestViewModel: ObservableObject {
 		   }
 	   }
    }
+		
+	func callAPI(lat: CLLocationDegrees, lon: CLLocationDegrees) {
+		
+		var components = URLComponents(string: "https://api.openweathermap.org/data/2.5/weather?")!
+		
+//		https://api.openweathermap.org/data/2.5/weather?lat=-23.550520&lon=-46.633308&appid=32a4b19cf3a447e6ed4ffb5c9a56dc77"
 	
-	//its almost everything in here, inside this viewmodel. except the initial call api function .
+		
+		components.queryItems = [
+			URLQueryItem(name: "lat", value: "\(lat)"),
+			URLQueryItem(name: "lon", value: "\(lon)"),
+			URLQueryItem(name: "appid", value: "32a4b19cf3a447e6ed4ffb5c9a56dc77"),
+			URLQueryItem(name: "units", value: "metric"),
+			URLQueryItem(name: "lang", value: "pt_br")
+			
+		]
+		
+		guard let url = components.url else {
+			return
+		}
+		
+		
+		URLSession.shared.dataTask(with: url) { data, response, error in
+			guard let data = data else {
+				print("no data")
+				return
+			}
+			
+			guard error == nil else {
+				print("error: \(String(describing: error?.localizedDescription))")
+				return
+			}
+			
+			guard let response = response as? HTTPURLResponse else {
+				print("invalid response")
+				return
+			}
+			
+			guard response.statusCode >= 200 && response.statusCode < 300 else {
+				print("Status code should be 2xx, but is \(response.statusCode) \(url)")
+				return
+			}
+			
+			print("Sucessfully donwloaded data!")
+			print(data)
+			
+			guard let weatherData = try? JSONDecoder().decode(WeatherData.self, from: data) else { return }
+			print("Decoded WeatherData: \(weatherData)")
+			DispatchQueue.main.async {
+				self.weatherData = weatherData
+			}
+			
+		}.resume()
+		
+	}
+	
+	
 	
 }
 
